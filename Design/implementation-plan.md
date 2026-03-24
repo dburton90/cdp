@@ -972,14 +972,6 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Detect available shells
-detect_shells() {
-    local shells=()
-    [ -f "$HOME/.bashrc" ] && shells+=("bash")
-    [ -f "$HOME/.zshrc" ] && shells+=("zsh")
-    echo "${shells[@]}"
-}
-
 # Check if fd is available
 check_fd() {
     if command -v fd &>/dev/null; then
@@ -990,32 +982,14 @@ check_fd() {
     fi
 }
 
-# Backup RC file
-backup_rc() {
-    local rc_file="$1"
-    if [ -f "$rc_file" ]; then
-        cp "$rc_file" "${rc_file}.backup.$(date +%Y%m%d%H%M%S)"
-        log_info "Backed up $rc_file"
-    fi
-}
-
-# Add source line if not present
-add_source_line() {
-    local rc_file="$1"
-    local integration_file="$2"
-    local source_line="[ -f $integration_file ] && source $integration_file"
-
-    if ! grep -qF "cd_project" "$rc_file" 2>/dev/null; then
-        backup_rc "$rc_file"
-        {
-            echo ""
-            echo "# cd_project integration"
-            echo "$source_line"
-        } >> "$rc_file"
-        log_info "Added source line to $rc_file"
-    else
-        log_warn "cd_project already configured in $rc_file"
-    fi
+# Generate shell configuration lines (printed for user to copy)
+generate_shell_config() {
+    local integration_file="$1"
+    local project_roots="$2"
+    echo ""
+    echo "# cd_project integration"
+    echo "export CD_PROJECT_ROOT=\"$project_roots\""
+    echo "[ -f \"$integration_file\" ] && source \"$integration_file\""
 }
 
 main() {
@@ -1057,25 +1031,15 @@ main() {
     chmod +x "$INSTALL_DIR/$BINARY_NAME"
     log_info "Installed binary to $INSTALL_DIR/$BINARY_NAME"
 
-    # Install shell integration
+    # Install shell integration files (do not modify RC files)
     if [[ "$SHELL_CHOICE" == "1" || "$SHELL_CHOICE" == "3" ]]; then
         cp "$PROJECT_ROOT/scripts/shell/bash_completion.sh" "$HOME/.cd_project.bash"
-        add_source_line "$HOME/.bashrc" "$HOME/.cd_project.bash"
-
-        # Add CD_PROJECT_ROOT to bashrc
-        if ! grep -q "CD_PROJECT_ROOT" "$HOME/.bashrc"; then
-            echo "export CD_PROJECT_ROOT=\"$PROJECT_ROOTS\"" >> "$HOME/.bashrc"
-        fi
+        log_info "Installed $HOME/.cd_project.bash"
     fi
 
     if [[ "$SHELL_CHOICE" == "2" || "$SHELL_CHOICE" == "3" ]]; then
         cp "$PROJECT_ROOT/scripts/shell/zsh_completion.sh" "$HOME/.cd_project.zsh"
-        add_source_line "$HOME/.zshrc" "$HOME/.cd_project.zsh"
-
-        # Add CD_PROJECT_ROOT to zshrc
-        if ! grep -q "CD_PROJECT_ROOT" "$HOME/.zshrc"; then
-            echo "export CD_PROJECT_ROOT=\"$PROJECT_ROOTS\"" >> "$HOME/.zshrc"
-        fi
+        log_info "Installed $HOME/.cd_project.zsh"
     fi
 
     # Run initial refresh
@@ -1088,7 +1052,26 @@ main() {
     echo "  Installation Complete!"
     echo "========================================"
     echo
-    echo "Restart your shell or run:"
+    echo "Add the following to your shell configuration file:"
+    echo
+
+    if [[ "$SHELL_CHOICE" == "1" || "$SHELL_CHOICE" == "3" ]]; then
+        echo "For ~/.bashrc:"
+        echo "----------------------------------------"
+        generate_shell_config "$HOME/.cd_project.bash" "$PROJECT_ROOTS"
+        echo "----------------------------------------"
+        echo
+    fi
+
+    if [[ "$SHELL_CHOICE" == "2" || "$SHELL_CHOICE" == "3" ]]; then
+        echo "For ~/.zshrc:"
+        echo "----------------------------------------"
+        generate_shell_config "$HOME/.cd_project.zsh" "$PROJECT_ROOTS"
+        echo "----------------------------------------"
+        echo
+    fi
+
+    echo "Then restart your shell or run:"
     echo "  source ~/.bashrc   # for Bash"
     echo "  source ~/.zshrc    # for Zsh"
     echo
@@ -1100,6 +1083,8 @@ main() {
 
 main "$@"
 ```
+
+**Note**: The install script never directly modifies `.bashrc` or `.zshrc` files. It only prints the configuration that users need to manually add.
 
 ### Verification
 
@@ -1501,10 +1486,12 @@ go build -o cd_project ./cmd/cd_project
 # Copy to PATH
 cp cd_project ~/.local/bin/
 
-# Add to shell RC (example for Bash)
-echo 'export CD_PROJECT_ROOT="$HOME/code"' >> ~/.bashrc
-echo 'source ~/.cd_project.bash' >> ~/.bashrc
+# Copy shell integration file
 cp scripts/shell/bash_completion.sh ~/.cd_project.bash
+
+# Add to your ~/.bashrc (manually):
+# export CD_PROJECT_ROOT="$HOME/code"
+# [ -f ~/.cd_project.bash ] && source ~/.cd_project.bash
 
 # Initial scan
 cd_project --refresh

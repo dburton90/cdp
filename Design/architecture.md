@@ -391,14 +391,6 @@ export CD_PROJECT_ROOT="$HOME/code:$HOME/work"  # Colon-separated roots
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Detect available shells
-detect_shells() {
-    local shells=()
-    [ -f "$HOME/.bashrc" ] && shells+=("bash")
-    [ -f "$HOME/.zshrc" ] && shells+=("zsh")
-    echo "${shells[@]}"
-}
-
 # Check if fd is available for faster scanning
 check_fd() {
     if command -v fd &>/dev/null; then
@@ -409,25 +401,21 @@ check_fd() {
     fi
 }
 
-# Backup existing RC file before modification
-backup_rc() {
-    local rc_file="$1"
-    if [ -f "$rc_file" ]; then
-        cp "$rc_file" "${rc_file}.backup.$(date +%Y%m%d%H%M%S)"
-    fi
-}
-
-# Add source line if not already present
-add_source_line() {
-    local rc_file="$1"
-    local source_line="$2"
-    if ! grep -qF "$source_line" "$rc_file" 2>/dev/null; then
-        echo "" >> "$rc_file"
-        echo "# cd_project integration" >> "$rc_file"
-        echo "$source_line" >> "$rc_file"
-    fi
+# Generate shell configuration lines (printed for user to copy)
+generate_shell_config() {
+    local integration_file="$1"
+    local project_roots="$2"
+    echo ""
+    echo "# cd_project integration"
+    echo "export CD_PROJECT_ROOT=\"$project_roots\""
+    echo "[ -f \"$integration_file\" ] && source \"$integration_file\""
 }
 ```
+
+**Note**: The install script never directly modifies `.bashrc` or `.zshrc` files. Instead, it prints the configuration that users need to manually add to their shell configuration files. This approach:
+- Avoids unexpected modifications to user configuration files
+- Gives users full control over their shell setup
+- Prevents potential conflicts with existing configurations
 
 ---
 

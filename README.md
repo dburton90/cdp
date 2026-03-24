@@ -28,14 +28,18 @@ make build
 # Copy to PATH
 cp cd_project ~/.local/bin/
 
-# Add to shell RC (example for Bash)
-echo 'export CD_PROJECT_ROOT="$HOME/code"' >> ~/.bashrc
-echo '[ -f ~/.cd_project.bash ] && source ~/.cd_project.bash' >> ~/.bashrc
+# Copy shell integration file
 cp scripts/shell/bash_completion.sh ~/.cd_project.bash
+
+# Add to your ~/.bashrc (manually):
+# export CD_PROJECT_ROOT="$HOME/code"
+# [ -f ~/.cd_project.bash ] && source ~/.cd_project.bash
 
 # Initial scan
 cd_project --refresh
 ```
+
+**Note**: The install script never directly modifies your `.bashrc` or `.zshrc` files. It prints the configuration you need to add manually.
 
 ## Usage
 

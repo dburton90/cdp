@@ -29,32 +29,14 @@ check_fd() {
     fi
 }
 
-# Backup RC file
-backup_rc() {
-    local rc_file="$1"
-    if [ -f "$rc_file" ]; then
-        cp "$rc_file" "${rc_file}.backup.$(date +%Y%m%d%H%M%S)"
-        log_info "Backed up $rc_file"
-    fi
-}
-
-# Add source line if not present
-add_source_line() {
-    local rc_file="$1"
-    local integration_file="$2"
-    local source_line="[ -f \"$integration_file\" ] && source \"$integration_file\""
-
-    if ! grep -qF "cd_project" "$rc_file" 2>/dev/null; then
-        backup_rc "$rc_file"
-        {
-            echo ""
-            echo "# cd_project integration"
-            echo "$source_line"
-        } >> "$rc_file"
-        log_info "Added source line to $rc_file"
-    else
-        log_warn "cd_project already configured in $rc_file"
-    fi
+# Generate shell configuration lines
+generate_shell_config() {
+    local integration_file="$1"
+    local project_roots="$2"
+    echo ""
+    echo "# cd_project integration"
+    echo "export CD_PROJECT_ROOT=\"$project_roots\""
+    echo "[ -f \"$integration_file\" ] && source \"$integration_file\""
 }
 
 main() {
@@ -112,37 +94,17 @@ main() {
         echo "       export PATH=\"\$PATH:$INSTALL_DIR\""
     fi
 
-    # Install shell integration
-    log_step "Installing shell integration..."
+    # Install shell integration files
+    log_step "Installing shell integration files..."
 
     if [[ "$SHELL_CHOICE" == "1" || "$SHELL_CHOICE" == "3" ]]; then
-        if [ -f "$HOME/.bashrc" ]; then
-            cp "$PROJECT_ROOT/scripts/shell/bash_completion.sh" "$HOME/.cd_project.bash"
-            add_source_line "$HOME/.bashrc" "$HOME/.cd_project.bash"
-
-            # Add CD_PROJECT_ROOT to bashrc if not present
-            if ! grep -q "CD_PROJECT_ROOT" "$HOME/.bashrc"; then
-                echo "export CD_PROJECT_ROOT=\"$PROJECT_ROOTS\"" >> "$HOME/.bashrc"
-                log_info "Added CD_PROJECT_ROOT to ~/.bashrc"
-            fi
-        else
-            log_warn "~/.bashrc not found, skipping Bash integration"
-        fi
+        cp "$PROJECT_ROOT/scripts/shell/bash_completion.sh" "$HOME/.cd_project.bash"
+        log_info "Installed $HOME/.cd_project.bash"
     fi
 
     if [[ "$SHELL_CHOICE" == "2" || "$SHELL_CHOICE" == "3" ]]; then
-        if [ -f "$HOME/.zshrc" ]; then
-            cp "$PROJECT_ROOT/scripts/shell/zsh_completion.sh" "$HOME/.cd_project.zsh"
-            add_source_line "$HOME/.zshrc" "$HOME/.cd_project.zsh"
-
-            # Add CD_PROJECT_ROOT to zshrc if not present
-            if ! grep -q "CD_PROJECT_ROOT" "$HOME/.zshrc"; then
-                echo "export CD_PROJECT_ROOT=\"$PROJECT_ROOTS\"" >> "$HOME/.zshrc"
-                log_info "Added CD_PROJECT_ROOT to ~/.zshrc"
-            fi
-        else
-            log_warn "~/.zshrc not found, skipping Zsh integration"
-        fi
+        cp "$PROJECT_ROOT/scripts/shell/zsh_completion.sh" "$HOME/.cd_project.zsh"
+        log_info "Installed $HOME/.cd_project.zsh"
     fi
 
     # Run initial refresh
@@ -156,7 +118,26 @@ main() {
     echo "     Installation Complete!"
     echo "========================================"
     echo
-    echo "Restart your shell or run:"
+    echo "Add the following to your shell configuration file:"
+    echo
+
+    if [[ "$SHELL_CHOICE" == "1" || "$SHELL_CHOICE" == "3" ]]; then
+        echo "For ~/.bashrc:"
+        echo "----------------------------------------"
+        generate_shell_config "$HOME/.cd_project.bash" "$PROJECT_ROOTS"
+        echo "----------------------------------------"
+        echo
+    fi
+
+    if [[ "$SHELL_CHOICE" == "2" || "$SHELL_CHOICE" == "3" ]]; then
+        echo "For ~/.zshrc:"
+        echo "----------------------------------------"
+        generate_shell_config "$HOME/.cd_project.zsh" "$PROJECT_ROOTS"
+        echo "----------------------------------------"
+        echo
+    fi
+
+    echo "Then restart your shell or run:"
     echo "  source ~/.bashrc   # for Bash"
     echo "  source ~/.zshrc    # for Zsh"
     echo
