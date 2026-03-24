@@ -1,0 +1,124 @@
+# cd_project
+
+Fast project directory navigator with shell integration and tab completion.
+
+## Features
+
+- 🚀 **Fast** - Uses `fd` for scanning when available (~10x faster), falls back to native Go
+- 🔍 **Smart** - Case-insensitive prefix matching, skips `node_modules`, `vendor`, etc.
+- 🐚 **Shell Integration** - Native Bash and Zsh support with tab completion
+- 📦 **Zero Dependencies** - Single Go binary, no runtime dependencies
+
+## Installation
+
+### Quick Install (Interactive)
+
+```bash
+git clone https://github.com/dbarton/cd_project.git
+cd cd_project
+./scripts/install.sh
+```
+
+### Manual Installation
+
+```bash
+# Build
+make build
+
+# Copy to PATH
+cp cd_project ~/.local/bin/
+
+# Add to shell RC (example for Bash)
+echo 'export CD_PROJECT_ROOT="$HOME/code"' >> ~/.bashrc
+echo '[ -f ~/.cd_project.bash ] && source ~/.cd_project.bash' >> ~/.bashrc
+cp scripts/shell/bash_completion.sh ~/.cd_project.bash
+
+# Initial scan
+cd_project --refresh
+```
+
+## Usage
+
+```bash
+# Navigate to a project
+cdp my-project
+
+# Tab completion
+cdp my<TAB>
+# Output: my-app  my-api  my-project
+
+# Refresh project cache after adding new repos
+cdp-refresh
+# or
+cd_project --refresh
+```
+
+## Configuration
+
+Set `CD_PROJECT_ROOT` to specify where to scan for projects:
+
+```bash
+# Single directory
+export CD_PROJECT_ROOT="$HOME/code"
+
+# Multiple directories (colon-separated)
+export CD_PROJECT_ROOT="$HOME/code:$HOME/work:$HOME/personal"
+```
+
+## CLI Reference
+
+```
+cd_project - Fast project directory navigator
+
+Usage:
+  cd_project --completion <prefix>  List matching projects
+  cd_project --path <name>          Get project path
+  cd_project --refresh              Rebuild project cache
+
+Environment:
+  CD_PROJECT_ROOT  Colon-separated list of root directories to scan
+```
+
+## Performance
+
+For large directory trees, install [fd](https://github.com/sharkdp/fd) for ~10x faster scanning:
+
+```bash
+# Ubuntu/Debian
+sudo apt install fd-find
+
+# macOS
+brew install fd
+
+# Arch
+sudo pacman -S fd
+```
+
+## How It Works
+
+1. `cd_project --refresh` scans `CD_PROJECT_ROOT` for directories containing `.git`
+2. Results are cached in `~/.cd_project_folders` (CSV format)
+3. `cdp <name>` looks up the project in cache and `cd`s to it
+4. Tab completion uses the cache for instant suggestions
+
+## Project Structure
+
+```
+cd_project/
+├── cmd/cd_project/main.go     # CLI entry point
+├── internal/
+│   ├── cache/                 # Cache read/write
+│   ├── matcher/               # Prefix matching
+│   ├── project/               # Project struct
+│   └── scanner/               # Directory scanning (native + fd)
+├── scripts/
+│   ├── install.sh             # Interactive installer
+│   └── shell/                 # Bash/Zsh integration
+├── Makefile
+└── README.md
+```
+
+## License
+
+MIT
+
