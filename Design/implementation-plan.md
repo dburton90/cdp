@@ -63,15 +63,15 @@ cd_project/
    var Version = "dev"
 
    func main() {
-       completion := flag.String("completion", "", "Return matching project names for prefix")
+       completion := flag.String("completion", "", "Return matching project names for query")
        path := flag.String("path", "", "Return absolute path for project name")
        refresh := flag.Bool("refresh", false, "Rescan directories and rebuild cache")
        version := flag.Bool("version", false, "Print version")
-       
+
        flag.Usage = func() {
            fmt.Fprintf(os.Stderr, "cd_project - Fast project directory navigator\n\n")
            fmt.Fprintf(os.Stderr, "Usage:\n")
-           fmt.Fprintf(os.Stderr, "  cd_project --completion <prefix>  List matching projects\n")
+           fmt.Fprintf(os.Stderr, "  cd_project --completion <query>   List matching projects\n")
            fmt.Fprintf(os.Stderr, "  cd_project --path <name>          Get project path\n")
            fmt.Fprintf(os.Stderr, "  cd_project --refresh              Rebuild project cache\n")
            fmt.Fprintf(os.Stderr, "\nEnvironment:\n")
@@ -94,7 +94,7 @@ cd_project/
        }
    }
 
-   func handleCompletion(prefix string) {
+   func handleCompletion(query string) {
        // TODO: Implement in Phase 6
        fmt.Println("completion not implemented")
    }
@@ -554,9 +554,9 @@ import "github.com/user/cd_project/internal/project"
 
 // Matcher provides project name matching functionality
 type Matcher interface {
-    // Match returns projects matching the given prefix (case-insensitive)
-    // Sorted by relevance: exact match first, then alphabetically
-    Match(prefix string, projects []project.Project) []project.Project
+    // Match returns projects containing the given query (case-insensitive)
+    // Sorted by relevance: exact match first, then prefix matches, then substring matches
+    Match(query string, projects []project.Project) []project.Project
 
     // FindExact returns the single best match
     // Returns error if no match or ambiguous (multiple matches)
@@ -564,10 +564,10 @@ type Matcher interface {
 }
 ```
 
-### PrefixMatcher Implementation
+### SubstringMatcher Implementation
 
 ```go
-// PrefixMatcher implements case-insensitive prefix matching
+// PrefixMatcher implements case-insensitive substring matching
 type PrefixMatcher struct{}
 
 // NewMatcher creates a new PrefixMatcher
@@ -575,9 +575,9 @@ func NewMatcher() *PrefixMatcher {
     return &PrefixMatcher{}
 }
 
-// Match returns all projects whose names start with prefix (case-insensitive)
-func (m *PrefixMatcher) Match(prefix string, projects []project.Project) []project.Project {
-    if prefix == "" {
+// Match returns all projects whose names contain query (case-insensitive)
+func (m *PrefixMatcher) Match(query string, projects []project.Project) []project.Project {
+    if query == "" {
         // Return all projects sorted alphabetically
         result := make([]project.Project, len(projects))
         copy(result, projects)
@@ -587,23 +587,33 @@ func (m *PrefixMatcher) Match(prefix string, projects []project.Project) []proje
         return result
     }
 
-    lowerPrefix := strings.ToLower(prefix)
+    lowerQuery := strings.ToLower(query)
     var matches []project.Project
 
     for _, p := range projects {
-        if strings.HasPrefix(strings.ToLower(p.Name), lowerPrefix) {
+        if strings.Contains(strings.ToLower(p.Name), lowerQuery) {
             matches = append(matches, p)
         }
     }
 
-    // Sort: exact matches first, then alphabetically
+    // Sort: exact matches first, then prefix matches, then substring matches
     sort.Slice(matches, func(i, j int) bool {
-        iExact := strings.EqualFold(matches[i].Name, prefix)
-        jExact := strings.EqualFold(matches[j].Name, prefix)
+        iLower := strings.ToLower(matches[i].Name)
+        jLower := strings.ToLower(matches[j].Name)
+
+        iExact := iLower == lowerQuery
+        jExact := jLower == lowerQuery
         if iExact != jExact {
             return iExact // Exact match comes first
         }
-        return strings.ToLower(matches[i].Name) < strings.ToLower(matches[j].Name)
+
+        iPrefix := strings.HasPrefix(iLower, lowerQuery)
+        jPrefix := strings.HasPrefix(jLower, lowerQuery)
+        if iPrefix != jPrefix {
+            return iPrefix // Prefix match comes before substring match
+        }
+
+        return iLower < jLower
     })
 
     return matches
@@ -713,7 +723,7 @@ func getRoots() ([]string, error) {
 ### Command Implementations
 
 ```go
-func handleCompletion(prefix string) {
+func handleCompletion(query string) {
     c := cache.NewFileCache()
     projects, err := c.Load()
     if err != nil {
@@ -726,7 +736,7 @@ func handleCompletion(prefix string) {
     }
 
     m := matcher.NewMatcher()
-    matches := m.Match(prefix, projects)
+    matches := m.Match(query, projects)
 
     // Output unique names only (for completion)
     seen := make(map[string]bool)
@@ -1236,25 +1246,29 @@ func TestPrefixMatcher_Match(t *testing.T) {
         {Name: "my-api", Path: "/my-api"},
         {Name: "other", Path: "/other"},
         {Name: "MY-APP", Path: "/MY-APP-upper"},
+        {Name: "preloliac", Path: "/preloliac"},
+        {Name: "lol-project", Path: "/lol-project"},
     }
 
     tests := []struct {
-        prefix    string
+        query     string
         wantCount int
     }{
-        {"my", 3},        // my-app, my-api, MY-APP (case-insensitive)
-        {"MY", 3},        // Same matches
-        {"my-app", 2},    // my-app and MY-APP
+        {"my", 3},          // my-app, my-api, MY-APP (case-insensitive)
+        {"MY", 3},          // Same matches
+        {"my-app", 2},      // my-app and MY-APP
         {"other", 1},
         {"nonexistent", 0},
-        {"", 4},          // All projects
+        {"", 6},            // All projects
+        {"lol", 2},         // preloliac and lol-project (substring matching)
+        {"app", 2},         // my-app and MY-APP (substring match)
     }
 
     for _, tt := range tests {
-        t.Run(tt.prefix, func(t *testing.T) {
-            matches := m.Match(tt.prefix, projects)
+        t.Run(tt.query, func(t *testing.T) {
+            matches := m.Match(tt.query, projects)
             if len(matches) != tt.wantCount {
-                t.Errorf("Match(%q) returned %d, want %d", tt.prefix, len(matches), tt.wantCount)
+                t.Errorf("Match(%q) returned %d, want %d", tt.query, len(matches), tt.wantCount)
             }
         })
     }
@@ -1463,7 +1477,7 @@ Fast project directory navigator with shell integration and tab completion.
 ## Features
 
 - 🚀 **Fast** - Uses `fd` for scanning when available, falls back to native Go
-- 🔍 **Smart** - Case-insensitive prefix matching with exact match priority
+- 🔍 **Smart** - Case-insensitive substring matching with relevance sorting
 - 🐚 **Shell Integration** - Native Bash and Zsh support with tab completion
 - 📦 **Zero Dependencies** - Single Go binary, no runtime dependencies
 
@@ -1561,7 +1575,7 @@ MIT
 | 2. Data Structures | Low | 20 min | Project struct |
 | 3. Cache Manager | Medium | 45 min | CSV read/write |
 | 4. Project Scanner | High | 1.5 hr | Native + fd scanners |
-| 5. Matcher | Medium | 45 min | Prefix matching |
+| 5. Matcher | Medium | 45 min | Substring matching |
 | 6. CLI Commands | Medium | 1 hr | Full CLI implementation |
 | 7. Shell Integration | Medium | 45 min | Bash/Zsh functions |
 | 8. Install Script | Medium | 1 hr | Interactive installer |
@@ -1579,7 +1593,7 @@ MIT
 ## Success Criteria
 
 - [ ] `cd_project --refresh` scans and caches projects
-- [ ] `cd_project --completion <prefix>` returns matching names
+- [ ] `cd_project --completion <query>` returns matching names (substring)
 - [ ] `cd_project --path <name>` returns absolute path
 - [ ] `cdp <name>` changes directory (via shell function)
 - [ ] Tab completion works in both Bash and Zsh

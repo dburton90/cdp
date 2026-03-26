@@ -5,7 +5,7 @@ Fast project directory navigator with shell integration and tab completion.
 ## Features
 
 - 🚀 **Fast** - Uses `fd` for scanning when available (~10x faster), falls back to native Go
-- 🔍 **Smart** - Case-insensitive prefix matching, skips `node_modules`, `vendor`, etc.
+- 🔍 **Smart** - Case-insensitive substring matching, skips `node_modules`, `vendor`, etc.
 - 🐚 **Shell Integration** - Native Bash and Zsh support with tab completion
 - 📦 **Zero Dependencies** - Single Go binary, no runtime dependencies
 
@@ -75,7 +75,7 @@ export CD_PROJECT_ROOT="$HOME/code:$HOME/work:$HOME/personal"
 cd_project - Fast project directory navigator
 
 Usage:
-  cd_project --completion <prefix>  List matching projects
+  cd_project --completion <query>   List matching projects
   cd_project --path <name>          Get project path
   cd_project --refresh              Rebuild project cache
 
@@ -112,7 +112,7 @@ cd_project/
 ├── cmd/cd_project/main.go     # CLI entry point
 ├── internal/
 │   ├── cache/                 # Cache read/write
-│   ├── matcher/               # Prefix matching
+│   ├── matcher/               # Substring matching
 │   ├── project/               # Project struct
 │   └── scanner/               # Directory scanning (native + fd)
 ├── scripts/

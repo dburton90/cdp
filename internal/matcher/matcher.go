@@ -11,9 +11,9 @@ import (
 
 // Matcher provides project name matching functionality.
 type Matcher interface {
-	// Match returns projects matching the given prefix (case-insensitive).
-	// Sorted by relevance: exact match first, then alphabetically.
-	Match(prefix string, projects []project.Project) []project.Project
+	// Match returns projects containing the given query (case-insensitive).
+	// Sorted by relevance: exact match first, then prefix matches, then substring matches.
+	Match(query string, projects []project.Project) []project.Project
 
 	// FindExact returns the single best match.
 	// Returns error if no match or ambiguous (multiple matches).
@@ -28,9 +28,10 @@ func NewMatcher() *PrefixMatcher {
 	return &PrefixMatcher{}
 }
 
-// Match returns all projects whose names start with prefix (case-insensitive).
-func (m *PrefixMatcher) Match(prefix string, projects []project.Project) []project.Project {
-	if prefix == "" {
+// Match returns all projects whose names contain the query (case-insensitive).
+// Sorted by relevance: exact match first, then prefix matches, then substring matches.
+func (m *PrefixMatcher) Match(query string, projects []project.Project) []project.Project {
+	if query == "" {
 		// Return all projects sorted alphabetically
 		result := make([]project.Project, len(projects))
 		copy(result, projects)
@@ -40,23 +41,33 @@ func (m *PrefixMatcher) Match(prefix string, projects []project.Project) []proje
 		return result
 	}
 
-	lowerPrefix := strings.ToLower(prefix)
+	lowerQuery := strings.ToLower(query)
 	var matches []project.Project
 
 	for _, p := range projects {
-		if strings.HasPrefix(strings.ToLower(p.Name), lowerPrefix) {
+		if strings.Contains(strings.ToLower(p.Name), lowerQuery) {
 			matches = append(matches, p)
 		}
 	}
 
-	// Sort: exact matches first, then alphabetically
+	// Sort: exact matches first, then prefix matches, then substring matches, then alphabetically
 	sort.Slice(matches, func(i, j int) bool {
-		iExact := strings.EqualFold(matches[i].Name, prefix)
-		jExact := strings.EqualFold(matches[j].Name, prefix)
+		iLower := strings.ToLower(matches[i].Name)
+		jLower := strings.ToLower(matches[j].Name)
+
+		iExact := iLower == lowerQuery
+		jExact := jLower == lowerQuery
 		if iExact != jExact {
 			return iExact // Exact match comes first
 		}
-		return strings.ToLower(matches[i].Name) < strings.ToLower(matches[j].Name)
+
+		iPrefix := strings.HasPrefix(iLower, lowerQuery)
+		jPrefix := strings.HasPrefix(jLower, lowerQuery)
+		if iPrefix != jPrefix {
+			return iPrefix // Prefix match comes before substring match
+		}
+
+		return iLower < jLower
 	})
 
 	return matches

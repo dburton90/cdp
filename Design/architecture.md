@@ -38,7 +38,7 @@
 │                     cd_project CLI (Go)                          │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │                    CLI Parser (cmd/)                      │   │
-│  │   --completion <prefix> | --path <name> | --refresh       │   │
+│  │   --completion <query> | --path <name> | --refresh        │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │          │                    │                  │               │
 │          ▼                    ▼                  ▼               │
@@ -107,10 +107,10 @@ cd_project/
 - **Interfaces**: `Scanner` interface with `Scan(roots []string) []Project`
 - **Scaling Strategy**: Concurrent scanning with worker pool
 
-### Component: Fuzzy Matcher (`internal/matcher/`)
+### Component: Substring Matcher (`internal/matcher/`)
 - **Type**: Utility
-- **Responsibility**: Match user input to project names
-- **Interfaces**: `Match(prefix string, projects []Project) []Project`
+- **Responsibility**: Match user input to project names (substring matching)
+- **Interfaces**: `Match(query string, projects []Project) []Project`
 
 ---
 
@@ -206,9 +206,9 @@ func NewFileCache() *FileCache {
 // internal/matcher/matcher.go
 
 type Matcher interface {
-    // Match returns projects matching the given prefix
-    // Sorted by relevance (exact match first, then prefix, then contains)
-    Match(prefix string, projects []project.Project) []project.Project
+    // Match returns projects containing the given query (case-insensitive)
+    // Sorted by relevance (exact match first, then prefix, then substring)
+    Match(query string, projects []project.Project) []project.Project
 
     // FindExact returns the single best match or error if ambiguous
     FindExact(name string, projects []project.Project) (project.Project, error)
@@ -219,10 +219,10 @@ type Matcher interface {
 
 ## CLI Commands
 
-### Command: `--completion <prefix>`
-- **Purpose**: Return matching project names for shell completion
+### Command: `--completion <query>`
+- **Purpose**: Return matching project names for shell completion (substring match)
 - **Output**: Newline-separated list of project names
-- **Example**: `cd_project --completion my` → `my-project\nmy-other-repo`
+- **Example**: `cd_project --completion lol` → `lol-project\npreloliac`
 
 ### Command: `--path <name>`
 - **Purpose**: Return absolute path for a project name
@@ -488,29 +488,40 @@ func (s *NativeScanner) Scan(roots []string) ([]project.Project, error) {
 }
 ```
 
-### 4. Case-Insensitive Matching
+### 4. Case-Insensitive Substring Matching
 
-**Strategy**: Lowercase comparison for matching, preserve original case in output
+**Strategy**: Lowercase comparison for matching, preserve original case in output.
+Results are sorted by relevance: exact matches first, then prefix matches, then substring matches.
 
 ```go
-func (m *PrefixMatcher) Match(prefix string, projects []project.Project) []project.Project {
-    lowerPrefix := strings.ToLower(prefix)
+func (m *PrefixMatcher) Match(query string, projects []project.Project) []project.Project {
+    lowerQuery := strings.ToLower(query)
     var matches []project.Project
 
     for _, p := range projects {
-        if strings.HasPrefix(strings.ToLower(p.Name), lowerPrefix) {
+        if strings.Contains(strings.ToLower(p.Name), lowerQuery) {
             matches = append(matches, p)
         }
     }
 
-    // Sort: exact match first, then alphabetically
+    // Sort: exact matches first, then prefix matches, then substring matches
     sort.Slice(matches, func(i, j int) bool {
-        iExact := strings.EqualFold(matches[i].Name, prefix)
-        jExact := strings.EqualFold(matches[j].Name, prefix)
+        iLower := strings.ToLower(matches[i].Name)
+        jLower := strings.ToLower(matches[j].Name)
+
+        iExact := iLower == lowerQuery
+        jExact := jLower == lowerQuery
         if iExact != jExact {
             return iExact
         }
-        return strings.ToLower(matches[i].Name) < strings.ToLower(matches[j].Name)
+
+        iPrefix := strings.HasPrefix(iLower, lowerQuery)
+        jPrefix := strings.HasPrefix(jLower, lowerQuery)
+        if iPrefix != jPrefix {
+            return iPrefix
+        }
+
+        return iLower < jLower
     })
 
     return matches

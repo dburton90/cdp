@@ -13,25 +13,31 @@ func TestPrefixMatcher_Match(t *testing.T) {
 		{Name: "my-api", Path: "/my-api"},
 		{Name: "other", Path: "/other"},
 		{Name: "MY-APP", Path: "/MY-APP-upper"},
+		{Name: "preloliac", Path: "/preloliac"},
+		{Name: "lol-project", Path: "/lol-project"},
 	}
 
 	tests := []struct {
-		prefix    string
+		query     string
 		wantCount int
 	}{
-		{"my", 3},         // my-app, my-api, MY-APP (case-insensitive)
-		{"MY", 3},         // Same matches
-		{"my-app", 2},     // my-app and MY-APP
-		{"other", 1},      // other only
+		{"my", 3},          // my-app, my-api, MY-APP (case-insensitive)
+		{"MY", 3},          // Same matches
+		{"my-app", 2},      // my-app and MY-APP
+		{"other", 1},       // other only
 		{"nonexistent", 0}, // no matches
-		{"", 4},           // All projects when empty
+		{"", 6},            // All projects when empty
+		{"lol", 2},         // preloliac and lol-project (substring matching)
+		{"LOL", 2},         // case-insensitive substring matching
+		{"api", 1},         // my-api only
+		{"app", 2},         // my-app and MY-APP (substring match)
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.prefix, func(t *testing.T) {
-			matches := m.Match(tt.prefix, projects)
+		t.Run(tt.query, func(t *testing.T) {
+			matches := m.Match(tt.query, projects)
 			if len(matches) != tt.wantCount {
-				t.Errorf("Match(%q) returned %d, want %d", tt.prefix, len(matches), tt.wantCount)
+				t.Errorf("Match(%q) returned %d, want %d", tt.query, len(matches), tt.wantCount)
 			}
 		})
 	}
@@ -45,13 +51,47 @@ func TestPrefixMatcher_MatchSorting(t *testing.T) {
 		{Name: "beta", Path: "/beta"},
 	}
 
-	// Empty prefix should return alphabetically sorted
+	// Empty query should return alphabetically sorted
 	matches := m.Match("", projects)
 	if len(matches) != 3 {
 		t.Fatalf("Match('') returned %d, want 3", len(matches))
 	}
 	if matches[0].Name != "alpha" || matches[1].Name != "beta" || matches[2].Name != "zebra" {
 		t.Errorf("Match('') not sorted alphabetically: %v", matches)
+	}
+}
+
+func TestPrefixMatcher_MatchSortingPriority(t *testing.T) {
+	m := NewMatcher()
+	projects := []project.Project{
+		{Name: "preloliac", Path: "/preloliac"},  // substring match
+		{Name: "lol", Path: "/lol"},              // exact match
+		{Name: "lol-project", Path: "/lol-proj"}, // prefix match
+		{Name: "superlol", Path: "/superlol"},    // substring match
+	}
+
+	// "lol" should return: exact first, then prefix, then substring matches alphabetically
+	matches := m.Match("lol", projects)
+	if len(matches) != 4 {
+		t.Fatalf("Match('lol') returned %d, want 4", len(matches))
+	}
+
+	// Exact match first
+	if matches[0].Name != "lol" {
+		t.Errorf("Expected exact match 'lol' first, got %s", matches[0].Name)
+	}
+
+	// Prefix match second
+	if matches[1].Name != "lol-project" {
+		t.Errorf("Expected prefix match 'lol-project' second, got %s", matches[1].Name)
+	}
+
+	// Substring matches alphabetically after
+	if matches[2].Name != "preloliac" {
+		t.Errorf("Expected 'preloliac' third (alphabetically first substring), got %s", matches[2].Name)
+	}
+	if matches[3].Name != "superlol" {
+		t.Errorf("Expected 'superlol' fourth, got %s", matches[3].Name)
 	}
 }
 

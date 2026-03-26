@@ -18,7 +18,7 @@ func main() {
 	var completionFlag string
 	var completionSet bool
 
-	flag.Func("completion", "Return matching project names for prefix", func(s string) error {
+	flag.Func("completion", "Return matching project names for query (substring match)", func(s string) error {
 		completionFlag = s
 		completionSet = true
 		return nil
@@ -31,7 +31,7 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "cd_project - Fast project directory navigator\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n")
-		fmt.Fprintf(os.Stderr, "  cd_project --completion <prefix>  List matching projects\n")
+		fmt.Fprintf(os.Stderr, "  cd_project --completion <query>   List matching projects\n")
 		fmt.Fprintf(os.Stderr, "  cd_project --path <name>          Get project path\n")
 		fmt.Fprintf(os.Stderr, "  cd_project --refresh              Rebuild project cache\n")
 		fmt.Fprintf(os.Stderr, "\nEnvironment:\n")
