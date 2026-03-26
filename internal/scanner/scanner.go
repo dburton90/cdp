@@ -32,8 +32,20 @@ func ScannerType() string {
 }
 
 // FdAvailable checks if fd is installed.
+// Checks for both "fd" and "fdfind" (Debian/Ubuntu package name).
 func FdAvailable() bool {
-	_, err := exec.LookPath("fd")
-	return err == nil
+	return fdCommand() != ""
+}
+
+// fdCommand returns the fd command name if available.
+// On Debian/Ubuntu, the package is called fd-find and installs as "fdfind".
+func fdCommand() string {
+	if _, err := exec.LookPath("fd"); err == nil {
+		return "fd"
+	}
+	if _, err := exec.LookPath("fdfind"); err == nil {
+		return "fdfind"
+	}
+	return ""
 }
 

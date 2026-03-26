@@ -24,7 +24,7 @@ func (s *FdScanner) Scan(roots []string) ([]project.Project, error) {
 		// --hidden: include hidden dirs
 		// --no-ignore: don't respect .gitignore
 		// --prune: don't descend into matches (key for performance!)
-		cmd := exec.Command("fd",
+		cmd := exec.Command(fdCommand(),
 			"--type", "d",
 			"--hidden",
 			"--no-ignore",
