@@ -43,7 +43,10 @@ func (s *FdScanner) Scan(roots []string) ([]project.Project, error) {
 			if line == "" {
 				continue
 			}
-			// fd returns /path/to/project/.git, we want /path/to/project
+			// fd returns /path/to/project/.git/ (with trailing slash)
+			// We need to remove the trailing slash before calling Dir()
+			line = strings.TrimSuffix(line, "/")
+			// Now get the parent directory (the project folder)
 			projectPath := filepath.Dir(line)
 			projects = append(projects, project.Project{
 				Name: filepath.Base(projectPath),
