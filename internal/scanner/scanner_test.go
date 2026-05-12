@@ -86,6 +86,44 @@ func TestNativeScanner_SkipsNodeModules(t *testing.T) {
 	}
 }
 
+func TestNativeScanner_SkipsWorktrees(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Real git repo (has .git directory)
+	realRepo := filepath.Join(tmpDir, "real-repo")
+	if err := os.MkdirAll(filepath.Join(realRepo, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Git worktree root (.git is a file, not a directory)
+	worktreeRoot := filepath.Join(tmpDir, "my-worktree")
+	if err := os.MkdirAll(worktreeRoot, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(worktreeRoot, ".git"), []byte("gitdir: /repo/.git/worktrees/my-worktree"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Repo nested inside the worktree — should NOT be found
+	nestedRepo := filepath.Join(worktreeRoot, "tools", "nested")
+	if err := os.MkdirAll(filepath.Join(nestedRepo, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	s := &NativeScanner{}
+	found, _ := s.Scan([]string{tmpDir})
+
+	if len(found) != 1 {
+		t.Errorf("Scan() found %d projects, want 1", len(found))
+		for _, p := range found {
+			t.Logf("  found: %s at %s", p.Name, p.Path)
+		}
+	}
+	if len(found) > 0 && found[0].Name != "real-repo" {
+		t.Errorf("Found project %s, want real-repo", found[0].Name)
+	}
+}
+
 func TestNativeScanner_InvalidRoot(t *testing.T) {
 	s := &NativeScanner{}
 	found, err := s.Scan([]string{"/nonexistent/path/that/does/not/exist"})

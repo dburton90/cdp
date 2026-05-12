@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -48,6 +49,9 @@ func (s *FdScanner) Scan(roots []string) ([]project.Project, error) {
 			line = strings.TrimSuffix(line, "/")
 			// Now get the parent directory (the project folder)
 			projectPath := filepath.Dir(line)
+			if isInsideGitWorktree(projectPath) {
+				continue
+			}
 			projects = append(projects, project.Project{
 				Name: filepath.Base(projectPath),
 				Path: projectPath,
@@ -56,5 +60,23 @@ func (s *FdScanner) Scan(roots []string) ([]project.Project, error) {
 	}
 
 	return projects, nil
+}
+
+// isInsideGitWorktree reports whether projectPath is nested inside a git worktree
+// or submodule root. Those have a .git FILE (not directory) at their root, which
+// means the scanner should not have descended into them.
+func isInsideGitWorktree(projectPath string) bool {
+	dir := filepath.Dir(projectPath)
+	for {
+		fi, err := os.Stat(filepath.Join(dir, ".git"))
+		if err == nil && !fi.IsDir() {
+			return true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false
+		}
+		dir = parent
+	}
 }
 

@@ -61,14 +61,16 @@ func (s *NativeScanner) Scan(roots []string) ([]project.Project, error) {
 				return filepath.SkipDir
 			}
 
-			// Check for .git directory
+			// Check for .git directory (real repo) or .git file (worktree/submodule)
 			gitPath := filepath.Join(path, ".git")
-			if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
-				projects = append(projects, project.Project{
-					Name: filepath.Base(path),
-					Path: path,
-				})
-				return filepath.SkipDir // Don't descend into Git repos
+			if fi, err := os.Stat(gitPath); err == nil {
+				if fi.IsDir() {
+					projects = append(projects, project.Project{
+						Name: filepath.Base(path),
+						Path: path,
+					})
+				}
+				return filepath.SkipDir // Don't descend into repos or worktrees
 			}
 
 			return nil

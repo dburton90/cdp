@@ -158,8 +158,9 @@ duplicate-name,/home/user/work/duplicate-name
 
 // Scanner discovers Git repositories
 type Scanner interface {
-    // Scan finds all Git repos under the given root directories
-    // Skips subdirectories once .git is found
+    // Scan finds all Git repos under the given root directories.
+    // Stops descending when a .git directory (real repo) or .git file
+    // (worktree/submodule) is found. Only .git directories are added as projects.
     Scan(roots []string) ([]project.Project, error)
 }
 
@@ -528,7 +529,20 @@ func (m *PrefixMatcher) Match(query string, projects []project.Project) []projec
 }
 ```
 
-### 5. Missing CD_PROJECT_ROOT
+### 5. Git Worktrees Producing Duplicate Names
+
+**Scenario**: A repo is checked out as multiple git worktrees. Each worktree contains the same subdirectory structure, causing the same project name to appear several times.
+```
+repos/containers/.git           ← real repo
+repos/purity-worktrees/PR-1/.git  ← file (worktree marker)
+repos/purity-worktrees/PR-1/tools/containers/.git  ← real .git dir inside worktree
+```
+
+**Solution**:
+- **NativeScanner**: treat `.git` files the same as `.git` directories for descent purposes — stop walking when either is found. Only add the path as a project if `.git` is a directory.
+- **FdScanner**: `fd --type d` only matches `.git` directories, so it descends through worktree roots unimpeded. After collecting results, walk each project's ancestor chain checking for a `.git` file; if found, the project is inside a worktree and is skipped.
+
+### 6. Missing CD_PROJECT_ROOT
 
 **Strategy**: Graceful fallback with helpful error
 
@@ -643,11 +657,14 @@ func (s *FdScanner) Scan(roots []string) ([]project.Project, error) {
                 continue
             }
             // fd returns /path/to/project/.git, we want /path/to/project
-            projectPath := filepath.Dir(line)
-            projects = append(projects, project.Project{
-                Name: filepath.Base(projectPath),
-                Path: projectPath,
-            })
+            projectPath := filepath.Dir(strings.TrimSuffix(line, "/"))
+            // fd doesn't prune at worktree roots (.git files); filter in Go
+            if !isInsideGitWorktree(projectPath) {
+                projects = append(projects, project.Project{
+                    Name: filepath.Base(projectPath),
+                    Path: projectPath,
+                })
+            }
         }
     }
 
@@ -684,14 +701,16 @@ func (s *NativeScanner) Scan(roots []string) ([]project.Project, error) {
                 return filepath.SkipDir
             }
 
-            // Check for .git
+            // Check for .git directory (real repo) or .git file (worktree/submodule)
             gitPath := filepath.Join(path, ".git")
-            if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
-                projects = append(projects, project.Project{
-                    Name: filepath.Base(path),
-                    Path: path,
-                })
-                return filepath.SkipDir  // Don't descend into git repos
+            if fi, err := os.Stat(gitPath); err == nil {
+                if fi.IsDir() {
+                    projects = append(projects, project.Project{
+                        Name: filepath.Base(path),
+                        Path: path,
+                    })
+                }
+                return filepath.SkipDir // Don't descend into repos or worktrees
             }
 
             return nil
