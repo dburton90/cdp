@@ -12,7 +12,6 @@ install: build
 clean:
 	rm -f $(BINARY_NAME)
 	rm -f ~/.cd_project_folders
-	rm -f ~/.cd_project.bash ~/.cd_project.zsh
 
 test:
 	go test -v ./...

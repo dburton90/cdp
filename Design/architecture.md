@@ -9,11 +9,13 @@
 ## System Context
 
 ### Users
+
 | User Type | Description | Scale |
 |-----------|-------------|-------|
 | Developer | Navigates between Git repositories frequently | Single user per install |
 
 ### External Systems
+
 | System | Integration Type | Purpose |
 |--------|------------------|---------|
 | File System | Direct access | Scan for .git directories |
@@ -90,24 +92,28 @@ cd_project/
 ## Components
 
 ### Component: CLI Parser (`cmd/cd_project/main.go`)
+
 - **Type**: CLI Entry Point
 - **Responsibility**: Parse arguments, route to appropriate handler
 - **Interfaces**: Command-line flags
 - **Design Notes**: Use standard library `flag` package (no external deps)
 
 ### Component: Cache Manager (`internal/cache/`)
+
 - **Type**: Data Access Layer
 - **Responsibility**: Read/write project cache, handle file locking
 - **Interfaces**: `Load() []Project`, `Save([]Project) error`
 - **File Format**: CSV with header `name,path`
 
 ### Component: Project Scanner (`internal/scanner/`)
+
 - **Type**: Service
 - **Responsibility**: Find all Git repositories under root directories
 - **Interfaces**: `Scanner` interface with `Scan(roots []string) []Project`
 - **Scaling Strategy**: Concurrent scanning with worker pool
 
 ### Component: Substring Matcher (`internal/matcher/`)
+
 - **Type**: Utility
 - **Responsibility**: Match user input to project names (substring matching)
 - **Interfaces**: `Match(query string, projects []Project) []Project`
@@ -221,22 +227,26 @@ type Matcher interface {
 ## CLI Commands
 
 ### Command: `--completion <query>`
+
 - **Purpose**: Return matching project names for shell completion (substring match)
 - **Output**: Newline-separated list of project names
 - **Example**: `cd_project --completion lol` → `lol-project\npreloliac`
 
 ### Command: `--path <name>`
+
 - **Purpose**: Return absolute path for a project name
 - **Output**: Single path or error
 - **Duplicate Handling**: If multiple matches, print error with options to stderr, exit 1
 - **Example**: `cd_project --path my-project` → `/home/user/code/my-project`
 
 ### Command: `--refresh`
+
 - **Purpose**: Rescan directories and rebuild cache
 - **Output**: Count of projects found
 - **Example**: `cd_project --refresh` → `Found 42 projects`
 
 ### Command: (no args)
+
 - **Purpose**: Interactive mode or usage help
 - **Output**: Usage information
 
@@ -314,6 +324,7 @@ compdef _cdp cdp
 ### Shell RC Integration
 
 Add to `~/.bashrc` or `~/.zshrc`:
+
 ```bash
 # cd_project integration
 export CD_PROJECT_ROOT="$HOME/code:$HOME/work"  # Colon-separated roots
@@ -364,25 +375,18 @@ export CD_PROJECT_ROOT="$HOME/code:$HOME/work"  # Colon-separated roots
                     │
                     ▼
 ┌─────────────────────────────────────────────────┐
-│ 6. Generate shell integration files             │
-│    ~/.cd_project.bash and/or ~/.cd_project.zsh  │
+│ 6. Generate shell integration                   │
 └─────────────────────────────────────────────────┘
                     │
                     ▼
 ┌─────────────────────────────────────────────────┐
-│ 7. Append source line to shell RC files         │
-│    (with backup and duplicate check)            │
-└─────────────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────────────┐
-│ 8. Run initial refresh                          │
+│ 7. Run initial refresh                          │
 │    cd_project --refresh                         │
 └─────────────────────────────────────────────────┘
                     │
                     ▼
 ┌─────────────────────────────────────────────────┐
-│ 9. Print success message with usage             │
+│ 8. Print success message with usage             │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -414,6 +418,7 @@ generate_shell_config() {
 ```
 
 **Note**: The install script never directly modifies `.bashrc` or `.zshrc` files. Instead, it prints the configuration that users need to manually add to their shell configuration files. This approach:
+
 - Avoids unexpected modifications to user configuration files
 - Gives users full control over their shell setup
 - Prevents potential conflicts with existing configurations
@@ -425,20 +430,24 @@ generate_shell_config() {
 ### 1. Duplicate Project Names
 
 **Scenario**: Multiple repos with same directory name
+
 ```
 ~/code/my-project/.git
 ~/work/my-project/.git
 ```
 
 **Solution**:
+
 - Store all duplicates in cache
 - On `--path` with ambiguity, print error with all options:
+
   ```
   Multiple projects named 'my-project':
     1. /home/user/code/my-project
     2. /home/user/work/my-project
   Use full path or rename directory.
   ```
+
 - On `--completion`, return all matches (shell shows all)
 
 ### 2. Symlinks
@@ -532,6 +541,7 @@ func (m *PrefixMatcher) Match(query string, projects []project.Project) []projec
 ### 5. Git Worktrees Producing Duplicate Names
 
 **Scenario**: A repo is checked out as multiple git worktrees. Each worktree contains the same subdirectory structure, causing the same project name to appear several times.
+
 ```
 repos/containers/.git           ← real repo
 repos/purity-worktrees/PR-1/.git  ← file (worktree marker)
@@ -539,6 +549,7 @@ repos/purity-worktrees/PR-1/tools/containers/.git  ← real .git dir inside work
 ```
 
 **Solution**:
+
 - **NativeScanner**: treat `.git` files the same as `.git` directories for descent purposes — stop walking when either is found. Only add the path as a project if `.git` is a directory.
 - **FdScanner**: `fd --type d` only matches `.git` directories, so it descends through worktree roots unimpeded. After collecting results, walk each project's ancestor chain checking for a `.git` file; if found, the project is inside a worktree and is skipped.
 
@@ -778,6 +789,7 @@ func (s *NativeScanner) ScanConcurrent(roots []string) ([]project.Project, error
 ## Technology Stack
 
 ### Languages & Frameworks
+
 | Component | Language | Framework | Rationale |
 |-----------|----------|-----------|-----------|
 | CLI | Go 1.21+ | stdlib only | Single binary, fast startup, no deps |
@@ -785,6 +797,7 @@ func (s *NativeScanner) ScanConcurrent(roots []string) ([]project.Project, error
 | Install Script | Bash | Native | Works everywhere |
 
 ### Dependencies
+
 | Dependency | Type | Purpose |
 |------------|------|---------|
 | None (stdlib) | Go modules | Keep binary small, fast compile |
@@ -803,21 +816,21 @@ VERSION?=$(shell git describe --tags --always --dirty)
 .PHONY: build install clean test
 
 build:
-	go build -ldflags "-X main.Version=$(VERSION)" -o $(BINARY_NAME) ./cmd/cd_project
+ go build -ldflags "-X main.Version=$(VERSION)" -o $(BINARY_NAME) ./cmd/cd_project
 
 install: build
-	./scripts/install.sh
+ ./scripts/install.sh
 
 clean:
-	rm -f $(BINARY_NAME)
-	rm -f ~/.cd_project_folders
-	rm -f ~/.cd_project.bash ~/.cd_project.zsh
+ rm -f $(BINARY_NAME)
+ rm -f ~/.cd_project_folders
+ rm -f ~/.cd_project.bash ~/.cd_project.zsh
 
 test:
-	go test -v ./...
+ go test -v ./...
 
 lint:
-	golangci-lint run
+ golangci-lint run
 ```
 
 ### Installation Methods
@@ -831,6 +844,7 @@ lint:
 ## Architecture Decisions
 
 ### ADR-001: Single Binary, No External Go Dependencies
+
 - **Status**: Accepted
 - **Context**: Tool should be fast to start and easy to distribute
 - **Decision**: Use only Go stdlib
@@ -838,6 +852,7 @@ lint:
 - **Consequences**: Simpler build, slightly more CLI boilerplate
 
 ### ADR-002: CSV Cache Format
+
 - **Status**: Accepted
 - **Context**: Need simple, human-readable cache
 - **Decision**: Plain CSV without headers
@@ -845,6 +860,7 @@ lint:
 - **Consequences**: Easy to debug/edit, grep-able, slightly slower for huge caches
 
 ### ADR-003: fd as Optional Accelerator
+
 - **Status**: Accepted
 - **Context**: Native Go scanning is slow for large trees
 - **Decision**: Auto-detect and use fd if available
@@ -852,6 +868,7 @@ lint:
 - **Consequences**: Best of both worlds - works everywhere, fast where available
 
 ### ADR-004: Environment Variable for Roots
+
 - **Status**: Accepted
 - **Context**: Need to configure which directories to scan
 - **Decision**: Use `CD_PROJECT_ROOT` env var, colon-separated
@@ -880,4 +897,3 @@ lint:
 4. **Config file**: For advanced users who need more options
 5. **Fish shell support**: Add Fish completion
 6. **Interactive picker**: TUI for selecting from multiple matches
-
