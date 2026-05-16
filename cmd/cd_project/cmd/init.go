@@ -31,7 +31,7 @@ func init() {
 }
 
 const bashTemplate = `
-cdp() {
+function cdp() {
     if [ "$#" -eq 0 ]; then
         cd_project --help
         return
@@ -43,7 +43,7 @@ cdp() {
     fi
 }
 
-_cdp_completion() {
+function _cdp_completion() {
     local cur
     cur="${COMP_WORDS[COMP_CWORD]}"
     # Use cobra's built-in completion mechanism
@@ -52,10 +52,11 @@ _cdp_completion() {
     COMPREPLY=( $(compgen -W "${matches}" -- "$cur") )
 }
 complete -F _cdp_completion cdp
+alias cdp-refresh=cd_project --refresh
 `
 
 const zshTemplate = `
-cdp() {
+function cdp() {
     if [ "$#" -eq 0 ]; then
         cd_project --help
         return
@@ -67,10 +68,11 @@ cdp() {
     fi
 }
 
-_cdp_completion() {
+function _cdp_completion() {
     local -a matches
     matches=(${(f)"$(cd_project __complete "$PREFIX" 2>/dev/null | cut -f1)"})
     _describe 'projects' matches
 }
 compdef _cdp_completion cdp
+alias cdp-refresh=cd_project --refresh
 `
