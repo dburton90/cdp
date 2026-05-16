@@ -9,7 +9,42 @@ Fast project directory navigator with shell integration and tab completion.
 - 🐚 **Shell Integration** - Native Bash and Zsh support with tab completion
 - 📦 **Zero Dependencies** - Single Go binary, no runtime dependencies
 
-**Note**: The install script never directly modifies your `.bashrc` or `.zshrc` files. It prints the configuration you need to add manually.
+## Installation
+
+### Install
+
+```bash
+git clone https://github.com/dbarton/cd_project.git
+cd cd_project
+go install ./cmd/cd_project
+# then move ./cd_project somewhere on your PATH
+```
+
+### 2. Set your project root
+
+```bash
+export CD_PROJECT_ROOT="$HOME/code"
+# or multiple roots, colon-separated:
+export CD_PROJECT_ROOT="$HOME/code:$HOME/work"
+```
+
+### 3. Wire up your shell
+
+Add one of the following to your shell rc file. `cd_project init` prints the `cdp` function, tab completion, and the `cdp-refresh` alias.
+
+**Bash** — add to `~/.bashrc`:
+
+```bash
+eval "$(cd_project init bash)"
+```
+
+**Zsh** — add to `~/.zshrc`:
+
+```bash
+eval "$(cd_project init zsh)"
+```
+
+Open a new shell (or `source` your rc file) and run `cdp <name>`. The first invocation will build the cache automatically.
 
 ## Usage
 
@@ -79,16 +114,12 @@ sudo pacman -S fd
 
 ```
 cd_project/
-├── cmd/cd_project/main.go     # CLI entry point
+├── cmd/cd_project/            # CLI entry point (cobra commands, shell init templates)
 ├── internal/
 │   ├── cache/                 # Cache read/write
 │   ├── matcher/               # Substring matching
-│   ├── project/               # Project struct
+│   ├── project/               # Project struct and name resolution
 │   └── scanner/               # Directory scanning (native + fd)
-├── scripts/
-│   ├── install.sh             # Interactive installer
-│   └── shell/                 # Bash/Zsh integration
-├── Makefile
 └── README.md
 ```
 
