@@ -16,8 +16,8 @@ func TestFileCache_SaveLoad(t *testing.T) {
 
 	// Save projects
 	projects := []project.Project{
-		{Name: "project-a", Path: "/path/to/a"},
-		{Name: "project-b", Path: "/path/to/b"},
+		{Name: "project-a", ResolvedName: "work/project-a", Path: "/path/to/a"},
+		{Name: "project-b", ResolvedName: "project-b", Path: "/path/to/b"},
 	}
 
 	if err := c.Save(projects); err != nil {
@@ -35,9 +35,27 @@ func TestFileCache_SaveLoad(t *testing.T) {
 	}
 
 	for i, p := range loaded {
-		if p.Name != projects[i].Name || p.Path != projects[i].Path {
+		if p.Name != projects[i].Name || p.ResolvedName != projects[i].ResolvedName || p.Path != projects[i].Path {
 			t.Errorf("Project[%d] = %v, want %v", i, p, projects[i])
 		}
+	}
+}
+
+func TestFileCache_Exists(t *testing.T) {
+	tmpDir := t.TempDir()
+	cachePath := filepath.Join(tmpDir, "test_cache")
+	c := NewFileCacheWithPath(cachePath)
+
+	if c.Exists() {
+		t.Errorf("Exists() should be false for missing file")
+	}
+
+	if err := os.WriteFile(cachePath, []byte("test"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if !c.Exists() {
+		t.Errorf("Exists() should be true for existing file")
 	}
 }
 

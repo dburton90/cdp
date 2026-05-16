@@ -20,6 +20,9 @@ type Cache interface {
 
 	// Path returns the cache file path.
 	Path() string
+
+	// Exists returns true if the cache file exists.
+	Exists() bool
 }
 
 // FileCache implements Cache using ~/.cd_project_folders.
@@ -43,6 +46,12 @@ func (c *FileCache) Path() string {
 	return c.path
 }
 
+// Exists returns true if the cache file exists.
+func (c *FileCache) Exists() bool {
+	_, err := os.Stat(c.path)
+	return err == nil
+}
+
 // Load reads projects from the cache file.
 // Returns empty slice if file doesn't exist (not an error).
 // Skips malformed lines gracefully.
@@ -61,14 +70,23 @@ func (c *FileCache) Load() ([]project.Project, error) {
 		if line == "" {
 			continue
 		}
-		parts := strings.SplitN(line, ",", 2)
-		if len(parts) != 2 {
+		parts := strings.SplitN(line, ",", 3)
+		if len(parts) < 2 {
 			continue // Skip malformed lines
 		}
-		projects = append(projects, project.Project{
+
+		p := project.Project{
 			Name: parts[0],
-			Path: parts[1],
-		})
+		}
+		if len(parts) == 3 {
+			p.ResolvedName = parts[1]
+			p.Path = parts[2]
+		} else {
+			// Backward compatibility: 2 parts (Name, Path)
+			p.ResolvedName = parts[0]
+			p.Path = parts[1]
+		}
+		projects = append(projects, p)
 	}
 
 	return projects, nil

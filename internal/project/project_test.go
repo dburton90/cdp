@@ -3,8 +3,8 @@ package project
 import "testing"
 
 func TestProject_String(t *testing.T) {
-	p := Project{Name: "my-project", Path: "/home/user/code/my-project"}
-	want := "my-project,/home/user/code/my-project"
+	p := Project{Name: "my-project", ResolvedName: "work/my-project", Path: "/home/user/code/my-project"}
+	want := "my-project,work/my-project,/home/user/code/my-project"
 	if got := p.String(); got != want {
 		t.Errorf("String() = %v, want %v", got, want)
 	}
@@ -13,9 +13,9 @@ func TestProject_String(t *testing.T) {
 func TestProject_StringWithComma(t *testing.T) {
 	// Note: paths with commas would break CSV parsing
 	// This test documents the current behavior
-	p := Project{Name: "my-project", Path: "/path/with,comma"}
+	p := Project{Name: "my-project", ResolvedName: "my-project", Path: "/path/with,comma"}
 	got := p.String()
-	if got != "my-project,/path/with,comma" {
+	if got != "my-project,my-project,/path/with,comma" {
 		t.Errorf("String() = %v", got)
 	}
 }
