@@ -9,36 +9,6 @@ Fast project directory navigator with shell integration and tab completion.
 - 🐚 **Shell Integration** - Native Bash and Zsh support with tab completion
 - 📦 **Zero Dependencies** - Single Go binary, no runtime dependencies
 
-## Installation
-
-### Quick Install (Interactive)
-
-```bash
-git clone https://github.com/dbarton/cd_project.git
-cd cd_project
-./scripts/install.sh
-```
-
-### Manual Installation
-
-```bash
-# Build
-make build
-
-# Copy to PATH
-cp cd_project ~/.local/bin/
-
-# Copy shell integration file
-cp scripts/shell/bash_completion.sh ~/.cd_project.bash
-
-# Add to your ~/.bashrc (manually):
-# export CD_PROJECT_ROOT="$HOME/code"
-# [ -f ~/.cd_project.bash ] && source ~/.cd_project.bash
-
-# Initial scan
-cd_project --refresh
-```
-
 **Note**: The install script never directly modifies your `.bashrc` or `.zshrc` files. It prints the configuration you need to add manually.
 
 ## Usage
@@ -125,4 +95,3 @@ cd_project/
 ## License
 
 MIT
-
